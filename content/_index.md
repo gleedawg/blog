@@ -1,20 +1,18 @@
 ---
-action_label: Read More &rarr;
+title: Jessy Gleeson
+subtitle: Teacher of Mathematics & Science, Lover of Data
+description: 
+    I love maths, and I teach what I love in the hope my enthusiasm runbs off on my students. For reasons           unknown I decided that data analysis is something I want to spend time doing. Sometimes I like taking           photos. I lot of the time I like running and cycling. It brings me joy to be kind to others so I do that as     often as possible too! 
+images:
+    #goes in /static/img
+    - img/revoir.jpg
+action_label: About me &rarr;
 action_link: /about
 action_type: text
-description: Sit down, relax, and get to know Hugo Apéro. Built on top of Blogophonic,
-  we wanted to create a polished Hugo theme with the right features for a true personal
-  website. We set out to create a theme that is a pleasure to learn, and one that
-  helps others get to know you better. It is more than a blog, with flexible custom
-  layouts that help you introduce yourself online.
 image_left: true
-images:
-- img/revoir.jpg
+text_align_left: false
 show_action_link: true
 show_social_links: true
-subtitle: A Hugo theme you'll want to hang out with
-text_align_left: false
-title: Hugo Apéro
 type: home
 ---
 

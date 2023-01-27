@@ -1,4 +1,4 @@
-baseURL = "/"
+baseURL = "https://blog.morewisely.co"
 theme = "hugo-apero"
 languageCode = "en"
 title = "Morewisely"
@@ -120,9 +120,9 @@ enableEmoji = true
     url = "/blog/"  
     weight = 2
   [[menu.header]]
-    name = "Projects"
-    title = "Project Portfolio"
-    url = "/project/"
+    name = "Photography"
+    title = "Photography Portfolio"
+    url = "/photography/"
     weight = 3
     
   # Configure footer  
