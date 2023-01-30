@@ -8,11 +8,11 @@ audio_link_label: #leave blank to exclude
 link_list_label: "Interests" #bookmarks, elsewhere, etc.
 link_list:
 - name: Knitting
-  url: https://en.wikipedia.org/wiki/Paris
+  url: https://en.wikipedia.org/wiki/Knitting
 - name: Fitness
-  url: https://en.wikipedia.org/wiki/Pastry
+  url: https://en.wikipedia.org/wiki/Fitness
 - name: Good Coffee
-  url: https://en.wikipedia.org/wiki/People
+  url: https://en.wikipedia.org/wiki/SpecialtyCoffee
 ---
 
 ** index doesn't contain a body, just front matter above.
