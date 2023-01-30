@@ -6,7 +6,7 @@ description:
 images:
     #goes in /static/img
     - img/revoir.jpg
-action_label: About me &rarr;
+action_label: Read some posts &rarr;
 action_link: /about
 action_type: text
 image_left: true

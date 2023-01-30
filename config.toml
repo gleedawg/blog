@@ -33,7 +33,7 @@ enableEmoji = true
   description = "A modern, beautiful, and easily configurable blog theme for Hugo."
   favicon = "/img/favicon.ico"
   logo = "/img/blogophonic-mark-dark.png"
-  mainSections = ["blog", "project", "talk"]
+  mainSections = [] # name this vector the links up top if you'd like eg. "Blog", this will put the same sections in the "about" section
   navallcaps = true
   # show/hide social icons in site header & footer
   # configure social icons and links below in [[params.social]]
@@ -97,10 +97,6 @@ enableEmoji = true
       icon      = "linkedin" # icon name without the 'fa-'
       icon_pack = "fab"
       url       = "https://www.linkedin.com/in/jessygleeson/"
-  [[params.social]]
-      icon      = "rss" # icon name without the 'fa-'
-      icon_pack = "fas"
-      url       = "/blog/index.xml"
 
 [taxonomies]
   category = "categories"
@@ -119,11 +115,6 @@ enableEmoji = true
     title = "Blog"
     url = "/blog/"  
     weight = 2
-  [[menu.header]]
-    name = "Photography"
-    title = "Photography Portfolio"
-    url = "/photography/"
-    weight = 3
     
   # Configure footer  
   [[menu.footer]]
@@ -136,11 +127,6 @@ enableEmoji = true
     title = "Contact form"
     url = "/contact/"
     weight = 2
-  [[menu.footer]]
-    name = "Contributors"
-    title = "Contributors"
-    url = "/contributors/"
-    weight = 3
 
 # see https://gohugo.io/about/hugo-and-gdpr/    
 [privacy]
