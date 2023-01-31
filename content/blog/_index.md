@@ -9,7 +9,7 @@ show_post_date: true
 show_post_thumbnail: true
 
 cascade:
-  author: The R Markdown Team @RStudio
+  author: Jessy Gleeson
   show_author_byline: false
   show_comments: true
   show_post_date: true
