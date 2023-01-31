@@ -1,0 +1,207 @@
+---
+title: "Tidy Tuesday: Weather Predictions"
+subtitle: "A quick analysis looking at predicted and observed weather patterns in the US."
+excerpt: ""
+date: 2023-01-31
+author: "Jessy Gleeson"
+draft: false
+images:
+series:
+tags:
+    -rstudio
+    -data-analysis
+categories:
+layout: single-sidebar
+---
+
+## Disclaimer: This is intended for my own educational purposes and will not read that well.
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(lubridate)
+library(colorspace)
+theme_set(theme_light())
+
+```
+
+Download the weekly data and make available in the `tt` object.
+
+```{r Load}
+
+tt <- tt_load("2022-12-20")
+
+```
+
+
+A quick look at the data.
+
+```{r Readme, eval = interactive()}
+
+view(tt)
+
+```
+
+
+# Glimpse Data
+
+Take an initial look at the format of the data available. Create tibbles for each dataframe.
+
+```{r Glimpse}
+
+weather_forecasts <- tt$weather_forecasts
+cities <- tt$cities
+meanings <- tt$outlook_meanings
+
+```
+
+# Wrangle
+
+Cleaning the data. Converting the data to metric.
+
+This was an exploration of the observed temperature and the predicted temperature. I calculated the percentage difference between the two values and used that as the basis for the next couple of visualisations. 
+
+I firstly had to convert each temperature, from Farenheit to Kelvin to get a correct % error.
+```{r Wrangle}
+
+# Joining the data together to give city information
+weather_forecasts <- weather_forecasts %>% 
+    left_join(cities, by = "city") %>% 
+    mutate(year = lubridate::year(date),
+           month = lubridate::month(date),
+           day = lubridate::day(date))
+
+weather_forecasts <- weather_forecasts %>% 
+    mutate(observed_temp = ((observed_temp - 32) * 5/9) + 273.15,
+           forecast_temp = ((forecast_temp - 32) * 5/9) + 273.15,
+           observed_precip = observed_precip * 25.4,
+           avg_annual_precip = avg_annual_precip * 25.4
+           )
+# Creating a percentage difference variable. This would have only worked if the temperature was in Kelvin.
+weather_forecasts <- weather_forecasts %>%
+    mutate(perc_diff = (observed_temp - forecast_temp) / observed_temp * 100)
+
+```
+
+# Chloropleth Map Code 
+
+Because this is geographical information, I wanted to use a choropleth as a way of visualising the data.
+```{r Chloropleth}
+# Load sf library
+library(sf)
+
+# Load shapefile
+state_borders <- read_sf("~/Library/CloudStorage/OneDrive-Personal/6 - Learning/Data Analytics/TidyTuesday/TidyTuesday/States_shapefile")
+```
+
+```{r}
+# Summarise by month and state the average percentage error
+by_month_state <- weather_forecasts %>% 
+    group_by(month, state.x) %>% 
+    summarise(avg_diff = mean(perc_diff, na.rm = TRUE)) %>% 
+    filter(!state.x %in% c("AK", "HI"))
+
+# Combine shape file to existing data
+# State_Code is the variable given by the shapefile with the state names
+# state.x is the variable with the state names
+by_month_state <- state_borders %>% 
+    left_join(by_month_state,
+              by = c("State_Code" = "state.x"))
+
+#Plot by month what states have the highest error?
+by_month_state %>%
+    filter(!is.na(month)) %>% 
+    ggplot(aes(fill = avg_diff)) +
+    geom_sf(colour = "Grey") +
+    scale_x_continuous(limits = c(-125, -65)) +
+    scale_y_continuous(limits = c(25, 50)) +
+    scale_fill_continuous_diverging(palette = "Tropic", l1 = 27, l2 = 100) +
+    facet_wrap(~month) +
+    theme(axis.text.x = element_blank(),
+          axis.text.y = element_blank()) +
+    labs(fill = "Avg. Prediction Error",
+         title = "Prediction Error by State and Month",
+         subtitle = "How error varies throughout the year"
+    )
+
+```
+
+Perhaps at the state level, not enough data points are available to make meaningful decisions from. A re-visualised the data at the city level to see if that would help.
+
+```{r}
+#Same thing as above but by city
+weather_forecasts %>% 
+    group_by(month, city, lon, lat) %>%
+    summarise(avg_diff = mean(perc_diff, na.rm = TRUE)) %>% 
+    filter(lon >= -130 & lat >= 22) %>%
+    ggplot(aes(lon, lat)) +
+    geom_point(aes(colour = avg_diff)) +
+    scale_colour_continuous_diverging(palette = "Blue-Red 3", l1 = 20, l2 = 90, p1 = 0.5, p2 = 0.9) +
+    borders("state") +
+    facet_wrap(~month) +
+    theme(axis.text.x = element_blank(),
+          axis.text.y = element_blank()) +
+    labs(fill = "Avg. Prediction Error",
+         title = "Prediction Error by City and Month",
+         subtitle = "How error varies throughout the year")
+```
+
+# Exploring the forecast weather outlook
+
+I simply wanted to look at the frequency of sunny days across each state. My hypothetical situation was being a person who loved the sun and wanted to move to the US. What data visualisation would help with their decision.
+
+```{r Forecast}
+# Summarising to get the data I wanted
+by_state_weather <- weather_forecasts %>% 
+    left_join(meanings, by = "forecast_outlook") %>% 
+    group_by(state.x, meaning) %>% 
+    summarise(n = n()) %>% 
+    mutate(freq = (n / sum(n)) * 100) %>% 
+    filter(n > 20)
+# Joining the shape file and the above data
+by_state_weather <- state_borders %>% 
+    left_join(by_state_weather,
+              by = c("State_Code" = "state.x"))
+
+by_state_weather %>% 
+    filter(meaning == "Sunny") %>% 
+    ggplot(aes(fill = freq)) +
+    geom_sf() +
+    scale_x_continuous(limits = c(-125, -65)) +
+    scale_y_continuous(limits = c(25, 50)) +
+    scale_fill_continuous_sequential(palette = "Viridis", rev = FALSE) +
+    labs(fill = "% Sunny",
+         title = "What were the sunniest states in 2021?",
+         subtitle = "A proportion of 'sunny' outlooks to every other outlook"
+    )
+    
+```
+
+
+# Visualize
+
+Some simple bar charts showing the highest error. According to state and the koppen climate classification.
+
+```{r Visualize}
+# Top 15 States with the highest average difference in forecast temperature
+weather_forecasts %>% 
+    group_by(state.x) %>% 
+    summarise(avg_diff = mean(perc_diff, na.rm = TRUE)) %>%
+    top_n(15) %>% 
+    ggplot(aes(x = fct_reorder(state.x, avg_diff, .desc = TRUE), y = avg_diff)) +
+    geom_bar(stat = "identity", aes(width = 0.5))
+```
+
+```{r}
+# Percent Error across the year sorted by climate region highest average error
+weather_forecasts %>% 
+    group_by(month, koppen) %>% 
+    summarise(avg_diff = mean(perc_diff, na.rm = TRUE)) %>% 
+    ggplot(aes(x = month, y = avg_diff, fill = koppen)) +
+    geom_bar(stat = "identity") +
+    facet_wrap(facets = ~fct_reorder(koppen, -avg_diff))
+```
