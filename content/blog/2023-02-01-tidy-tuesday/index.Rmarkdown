@@ -1,16 +1,16 @@
 ---
-title: tidy tuesday
-subtitle: 
+title: "Cats in Australia - An Analysis"
+subtitle: "An initial project exploring the capabilities of rStudio through the lens of cat data."
 author: Jessy Gleeson
 date: '2023-02-01'
 slug: []
 categories: []
-tags: []
+tags: ["rstudio", "data-analysis"]
 layout: single-sidebar
 ---
 
 Load relevant libraries
-```{r}
+```{r include=FALSE}
 library(tidytuesdayR)
 library(tidyverse)
 library(lubridate)
@@ -20,13 +20,13 @@ library(sf)
 ```
 
 
-```{r}
+```{r include=FALSE}
 data <- read.csv("/Users/jessygleeson/Rstudio-Files/Pet-Cats-Australia.csv")
 ref_data <- read.csv("/Users/jessygleeson/Rstudio-Files/Pet-Cats-Australia-reference-data.csv")
 ```
 
 # A quick glance at the data
-```{r}
+```{r include=FALSE}
 print(ref_data)
 ```
 
@@ -135,13 +135,13 @@ complete_data %>%
 
 ## Missing Data Analysis
 I'm not really getting a whole lot out of this data. So I'm going to focus on the missing and NA values to determine a cause for those.
-```{r}
+```{r include=FALSE}
 cleaned_ref_data %>% 
     filter(is.na(`n_cats`))
 ```
 So both of these cats have missing data, so we might remove those from the dataset. If we an up joining the data to longitude data it there'll be many more NA's. One is NA while the other is completely missing. I'm going to label this missing data as missing inputs as there is very few account of the same case happening. 
 
-```{r}
+```{r include=FALSE}
 # Convert all blank data into NA values
 cleaned_ref_data[cleaned_ref_data==""] <- NA
 
@@ -150,19 +150,19 @@ cleaned_ref_data <- cleaned_ref_data %>%
     filter(animal.id != c("Costa", "Bagheera"))
 ```
 
-There's some data input in such columns as "Hunt", and "animal.reproductive.condition" that have a number of errors in the data. Zeroes for one, they should be replaced with No's as this is the most likely cause. The other NA's could be caused by not inputting data because they cats don't hunt and could also be interpreted as "No's" in the questionnaire. Firsly, I want to find any patterns that may be present with each significant variable. This may be tedious...
+Ther e's some data input in such columns as "Hunt", and "animal.reproductive.condition" that have a number of errors in the data. Zeroes for one, they should be replaced with No's as this is the most likely cause. The other NA's could be caused by not inputting data because they cats don't hunt and could also be interpreted as "No's" in the questionnaire. Firsly, I want to find any patterns that may be present with each significant variable. This may be tedious...
 ```{r}
 cleaned_ref_data %>% 
     group_by(animal.reproductive.condition) %>% 
     summarise(n = n())
 ```
 Alright, NA is NA, this is assumed to be a questionnaire for the owners to complete. I will interpret NA as being an incomplete question and will remove the data. Zero however will need a closer look.
-```{r}
+```{r include=FALSE}
 cleaned_ref_data %>% 
     filter(Hunt == 0)
 ```
 A closer look here shows consistent missing data across an observation when Hunt is zero. This is indicative of lack of data entered, and should be removed. 
-```{r}
+```{r include=FALSE}
 cleaned_ref_data <- cleaned_ref_data %>% 
     filter(Hunt != 0) %>% 
     filter(!is.na(Hunt)) %>% 
@@ -171,14 +171,14 @@ cleaned_ref_data <- cleaned_ref_data %>%
     filter(animal.sex != "")
 ```
 
-```{r}
+```{r include=FALSE}
 cleaned_ref_data %>% 
     filter(animal.sex == "")
 ```
 A closer look at some missing animal sex data shows no additional patterns. I can't think of a reason why it would be missing. I will write it off as errors in the data transfer process. As plenty of pets could easily take gender neutral names, I can't fill in that data with the genders I think would be true and therefore ruin the data. 
 
 Rename all variables in the animal.reproductive.condition to either "fixed" or "not fixed"
-```{r}
+```{r include=FALSE}
 cleaned_ref_data <- cleaned_ref_data %>% 
     mutate(animal.reproductive.condition =  recode(animal.reproductive.condition, "Neutered" = "Fixed", "Spayed" = "Fixed"))
 ```
