@@ -1,0 +1,186 @@
+---
+title: tidy tuesday
+subtitle: 
+author: Jessy Gleeson
+date: '2023-02-01'
+slug: []
+categories: []
+tags: []
+layout: single-sidebar
+---
+
+Load relevant libraries
+```{r}
+library(tidytuesdayR)
+library(tidyverse)
+library(lubridate)
+library(stringr)
+library(rmapshaper)
+library(sf)
+```
+
+
+```{r}
+data <- read.csv("/Users/jessygleeson/Rstudio-Files/Pet-Cats-Australia.csv")
+ref_data <- read.csv("/Users/jessygleeson/Rstudio-Files/Pet-Cats-Australia-reference-data.csv")
+```
+
+# A quick glance at the data
+```{r}
+print(ref_data)
+```
+
+There are some columns that need to be separated out:
+- animal.comments
+- manipulation.comments
+
+```{r Cleaning the Data}
+cleaned_ref_data <- ref_data %>% 
+    separate(animal.comments, c("Hunt", "Prey per Month"), ";") %>% 
+    separate(manipulation.comments, c("hrs_indoors", "n_cats"), ";") %>% 
+    mutate(Hunt = str_remove(Hunt, "Hunt: "),
+           `Prey per Month` = str_remove(`Prey per Month`, "prey_p_month: "),
+           animal.life.stage = str_remove(animal.life.stage, " years"),
+           animal.life.stage = str_remove(animal.life.stage, " year"),
+           animal.life.stage = str_remove(animal.life.stage, "year"),
+           hrs_indoors = str_remove(hrs_indoors, "hrs_indoors: "),
+           n_cats = str_remove(n_cats, "n_cats: "))
+
+# Rename the variable for the left_join
+data <- data %>% 
+    rename(animal.id = individual.local.identifier)
+
+# Join the two datasets together now using left_join
+complete_data <- left_join(data, cleaned_ref_data, by = "animal.id")
+
+# Using lubridate to pull info out of the timestamp
+complete_data <- complete_data %>% 
+    mutate(yr = year(timestamp),
+           mth = month(timestamp),
+           day = day(timestamp),
+           hr = hour(timestamp),
+           min = minute(timestamp),
+           sec = second(timestamp))
+```
+
+Now I want to find a way of determining the gps coordinates of each cat's home. My first thought is to take an average of the longitude and latitude of each cat. That might give a good representation. I figured I would use median rather than mean.
+```{r Finding the home of each cat}
+home_location <- complete_data %>% 
+    group_by(animal.id) %>% 
+    summarise(home.long = median(location.long), home.lat = median(location.lat))
+```
+
+```{r Loading Shape File of Australia}
+aus_sf <- sf::st_read('/Users/jessygleeson/Rstudio-Files/STE_2021_AUST_SHP_GDA2020/STE_2021_AUST_GDA2020.shp')
+aus_sf <- ms_simplify(aus_sf, keep = 0.01, keep_shapes = TRUE)
+```
+
+Ok so now I know this study was done in South Australia. There are 442 different subjects. I am curious where these kitties are located relative to any National Parks. I don't know if I can find the relevant shapefile however.
+```{r Plotting the home of each kitty}
+home_location %>% 
+    ggplot() +
+    geom_sf(data = aus_sf) +
+    geom_point(aes(x = home.long, y = home.lat)) +
+    coord_sf(xlim = c(132, 142), ylim = c(-30, -39))
+```
+So at least the study of the Australian cats were in South Australia. Interesting.
+
+I want to try and use the timestamp data together with the GPS coordinates. Particularly if I can map each kitty's distance from home over time. That'd be a cool graph.
+
+## The Distance Formula
+It's a spin-off of the Pythagorean Theorem:
+$$c^2 = a^2 + b^2$$
+Using the x and y coordinate system:
+$$D = \sqrt{(y_2 - y_1)^2 + (x_2 - x_1)^2}$$
+The distances are small enough to ignore the curature of the earth. That does simplify the conversion. That is:
+$$1^\circ = \text{60 nautical miles} = 111.12~km = 111,120~m$$
+So if I determine the Angular distance between the two points (home and current position) I could multiply that by 111,120 to give me a distance in metres.
+I need to join the home_location data to the complete_data.
+```{r Joining the Data}
+complete_data <- home_location %>% 
+    left_join(complete_data, by = 'animal.id')
+```
+Alright, the data has been combined :) 
+
+Let's calculate!
+```{r Calculating the distance from home}
+complete_data <- complete_data %>% 
+    mutate(distance = (sqrt((home.long - location.long)^2 + (home.lat - location.lat)^2))*111120, na.rm = TRUE)
+```
+
+Alrighty, now...a plot to visualise the average distance from home across the dataset.
+```{r Log Distribution of Distance from Home}
+complete_data %>% 
+    filter(distance > 0 & distance <= 1500) %>% 
+    ggplot(aes(x = distance)) +
+    geom_histogram(colour = "black", fill = "#BC3818") +
+    scale_x_log10(labels = scales::comma) +
+    xlab("Distance from Home") +
+    labs(
+        title = "What is the distribution of the distance from home?"
+    )
+```
+Oh ok, so once you add a log transformation then it becomes a fairly normal distribution.
+
+I would like to know the characteristics of those cats who wander between 100 and 1000m from home. are they neutered? Do they hunt? Are they male/female? etc.
+```{r}
+complete_data %>% 
+    filter(distance > 0 & distance <= 1500) %>% 
+    filter(!is.na(animal.sex)) %>% 
+    ggplot(aes(x = distance)) +
+    geom_histogram(alpha = 0.7) +
+    facet_grid(Hunt ~ ., scales = "free_y") +
+    scale_x_log10(labels = scales::comma)
+```
+
+## Missing Data Analysis
+I'm not really getting a whole lot out of this data. So I'm going to focus on the missing and NA values to determine a cause for those.
+```{r}
+cleaned_ref_data %>% 
+    filter(is.na(`n_cats`))
+```
+So both of these cats have missing data, so we might remove those from the dataset. If we an up joining the data to longitude data it there'll be many more NA's. One is NA while the other is completely missing. I'm going to label this missing data as missing inputs as there is very few account of the same case happening. 
+
+```{r}
+# Convert all blank data into NA values
+cleaned_ref_data[cleaned_ref_data==""] <- NA
+
+#Proceed to remove all NA values from the dataset
+cleaned_ref_data <- cleaned_ref_data %>% 
+    filter(animal.id != c("Costa", "Bagheera"))
+```
+
+There's some data input in such columns as "Hunt", and "animal.reproductive.condition" that have a number of errors in the data. Zeroes for one, they should be replaced with No's as this is the most likely cause. The other NA's could be caused by not inputting data because they cats don't hunt and could also be interpreted as "No's" in the questionnaire. Firsly, I want to find any patterns that may be present with each significant variable. This may be tedious...
+```{r}
+cleaned_ref_data %>% 
+    group_by(animal.reproductive.condition) %>% 
+    summarise(n = n())
+```
+Alright, NA is NA, this is assumed to be a questionnaire for the owners to complete. I will interpret NA as being an incomplete question and will remove the data. Zero however will need a closer look.
+```{r}
+cleaned_ref_data %>% 
+    filter(Hunt == 0)
+```
+A closer look here shows consistent missing data across an observation when Hunt is zero. This is indicative of lack of data entered, and should be removed. 
+```{r}
+cleaned_ref_data <- cleaned_ref_data %>% 
+    filter(Hunt != 0) %>% 
+    filter(!is.na(Hunt)) %>% 
+    filter(animal.reproductive.condition != "") %>% 
+    filter(!is.na(animal.reproductive.condition)) %>% 
+    filter(animal.sex != "")
+```
+
+```{r}
+cleaned_ref_data %>% 
+    filter(animal.sex == "")
+```
+A closer look at some missing animal sex data shows no additional patterns. I can't think of a reason why it would be missing. I will write it off as errors in the data transfer process. As plenty of pets could easily take gender neutral names, I can't fill in that data with the genders I think would be true and therefore ruin the data. 
+
+Rename all variables in the animal.reproductive.condition to either "fixed" or "not fixed"
+```{r}
+cleaned_ref_data <- cleaned_ref_data %>% 
+    mutate(animal.reproductive.condition =  recode(animal.reproductive.condition, "Neutered" = "Fixed", "Spayed" = "Fixed"))
+```
+
+Alright, I might leave it here. and call it a roughly "clean" dataset. Reflections, is that I sohuld have done this before I started merging the data. But I wouldn't have learned the mistake if I didn't make it. In the future, I will look carfully for the NA values and make early decisions to clean the data. 

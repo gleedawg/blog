@@ -6,6 +6,7 @@ date: '2023-02-01'
 slug: []
 categories: []
 tags: ["rstudio", "data-analysis"]
+layout: single-sidebar
 ---
 
 Disclaimer: This is intended for my own educational purposes and will not read that well.
